@@ -30,7 +30,10 @@ grep -q "swap" /etc/fstab
 #如果不存在将为其创建swap
 if [ $? -ne 0 ]; then
 	echo -e "${Green}swap未发现，正在为其创建swap${Font}"
-	fallocate -l ${swapsize}M /swap
+	if ! fallocate -l ${swapsize}M /swap
+	then
+        dd if=/dev/zero of=/swap bs=1M count=${swap_size}
+    fi
 	chmod 600 /swap
 	mkswap /swap
 	swapon /swap
