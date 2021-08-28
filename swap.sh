@@ -32,8 +32,8 @@ if [ $? -ne 0 ]; then
 	echo -e "${Green}swap未发现，正在为其创建swap${Font}"
 	if ! fallocate -l ${swapsize}M /swap
 	then
-        dd if=/dev/zero of=/swap bs=1M count=${swap_size}
-    fi
+            dd if=/dev/zero of=/swap bs=1M count=${swap_size}
+        fi
 	chmod 600 /swap
 	mkswap /swap
 	swapon /swap
