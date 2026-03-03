@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # original: https://cdn.skk.moe/sh/optimize.sh
 # modified by WithdewHua
-# bash <(curl -L -s https://github.com/WithdewHua/LinuxScripts/raw/refs/heads/main/optimize.sh)
+# bash <(curl -L -s https://raw.githubusercontent.com/WithdewHua/LinuxScripts/refs/heads/main/optimize.sh)
 echo=echo
 for cmd in echo /bin/echo; do
     $cmd >/dev/null 2>&1 || continue
