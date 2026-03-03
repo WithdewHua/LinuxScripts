@@ -100,8 +100,8 @@ systemctl enable disable-transparent-huge-pages
 
 # ── 内核模块 ──────────────────────────────────────────────────────────────
 OUT_INFO "启用 tls 和 nf_conntrack 内核模块"
-echo nf_conntrack > /usr/lib/modules-load.d/withdewhua-network-optimized.conf
-echo tls >> /usr/lib/modules-load.d/withdewhua-network-optimized.conf
+echo nf_conntrack > /etc/modules-load.d/withdewhua-network-optimized.conf
+echo tls >> /etc/modules-load.d/withdewhua-network-optimized.conf
 
 # ── conntrack hashsize ────────────────────────────────────────────────────
 OUT_INFO "设置 nf_conntrack hashsize"
