@@ -91,7 +91,6 @@ cat >/etc/systemd/system/disable-transparent-huge-pages.service <<EOF
 Description=Disable Transparent Huge Pages (THP)
 DefaultDependencies=no
 After=sysinit.target local-fs.target
-Before=mongod.service
 [Service]
 Type=oneshot
 ExecStart=/bin/sh -c 'echo never | tee /sys/kernel/mm/transparent_hugepage/enabled > /dev/null'
@@ -253,11 +252,26 @@ ct_max=$((mems / 4096))
 ct_hashsize=$((ct_max / 4))
 OUT_INFO "nf_conntrack_max = ${ct_max}，hashsize = ${ct_hashsize}"
 
+# ── tcp_max_tw_buckets（TIME_WAIT 上限，条目数）─────────────────────────────
+# 代理/Web 转发节点有海量主动出站短连接，TIME_WAIT 堆积快；触顶会报
+# "time wait bucket table overflow" 并提前 RST。每条目约 256B，故按内存伸缩：
+#   上限 = 内存字节 / 8192  （最坏约占 ~3% RAM）
+#   下限 262144（沿用内核较大默认），上限 2097152（够用，避免无限膨胀）
+tw_max=$((mems / 8192))
+[ "$tw_max" -lt 262144 ] && tw_max=262144
+[ "$tw_max" -gt 2097152 ] && tw_max=2097152
+OUT_INFO "tcp_max_tw_buckets = ${tw_max}"
+
 # 写入 hashsize（模块参数）并加载 nf_conntrack，使 net.netfilter.* 可被 sysctl 设置。
-# 注：若模块此前已加载，hashsize 需重启后才会按新值生效。
+# 持久化到 modprobe.d 供重启后（重新加载模块时）生效。
 mkdir -p /etc/modprobe.d
 echo "options nf_conntrack hashsize=${ct_hashsize}" >/etc/modprobe.d/nf_conntrack.conf
 modprobe nf_conntrack 2>/dev/null || true
+# 运行中的系统通常已由 iptables/nftables 拉起 nf_conntrack，此时 modprobe 不会重设
+# hashsize。改写 sysfs 参数可触发内核 rehash，使新 hashsize 立即生效，无需重启。
+if [ -w /sys/module/nf_conntrack/parameters/hashsize ]; then
+  echo "${ct_hashsize}" >/sys/module/nf_conntrack/parameters/hashsize 2>/dev/null || true
+fi
 
 # ══════════════════════════════════════════════════════════════════════════
 # 写入 sysctl 配置
@@ -326,7 +340,7 @@ net.ipv4.tcp_keepalive_probes = 5
 net.ipv4.tcp_keepalive_time = 300
 net.ipv4.tcp_max_orphans = 8192
 net.ipv4.tcp_max_syn_backlog = 16384
-net.ipv4.tcp_max_tw_buckets = 262144
+net.ipv4.tcp_max_tw_buckets = ${tw_max}
 net.ipv4.tcp_mtu_probing = 1
 # disable saving ssthresh to route cache; use no_metrics_save instead
 net.ipv4.tcp_no_metrics_save = 1
@@ -390,6 +404,7 @@ OUT_INFO "  udp_mem          = ${udp_mem_min} ${udp_mem_pressure} ${udp_mem_max}
 OUT_INFO "  buf_default      = $((buf_default / 1024))KB"
 OUT_INFO "  buf_max          = ${buf_max_mb}MB"
 OUT_INFO "  nf_conntrack_max = ${ct_max}（hashsize ${ct_hashsize}）"
+OUT_INFO "  tcp_max_tw_buckets = ${tw_max}"
 OUT_INFO "  拥塞控制         = ${tcp_cc}"
 
 sysctl --system
